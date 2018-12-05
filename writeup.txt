@@ -1,0 +1,9 @@
+Pathing Algoirithm: Turn right, if time Shortest path algorithm that we learned in 225
+Puzzle Solving: Implementing Rule 2
+
+Main goal: Getting enough keys as fast as possible to access treasures
+Find out which treasure is closest to the bot
+We solve puzzles when we reach the treasure
+
+We will only break a wall if the treasure chest is only separated by one wall. Even if we have no keys, we would still want to solve it
+Optimizations: Checking other bot's position to see if it is worth it to go for the treasure
