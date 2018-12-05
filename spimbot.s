@@ -50,9 +50,29 @@ REQUEST_PUZZLE_ACK      = 0xffff00d8
 
 .text
 main:
-	# Insert code here
-    jr            $ra                         #ret
+        #Fill in your code here
+        li      $t4, TIMER_INT_MASK               # timer interrupt enable bit
+        or      $t4, $t4, BONK_INT_MASK           # bonk interrupt bit
+        or      $t4, $t4, 1                       # global interrupt enable
+        mtc0    $t4, $12                          # set interrupt mask (Status register)
+        
+        # REQUEST TIMER INTERRUPT 
+        # lw      $v0, TIMER($0)                  # read current time
+        # jr      $ra                             # ret
+        lw      $a1, RIGHT_WALL_SENSOR            # prev right wall
+infinite:   
+        lw      $a0, RIGHT_WALL_SENSOR            # 1 if wall to right
+        bne     $a0, $0, skip_turn    
+        beq     $a0, $a1, skip_turn               # rotate 90 if 0
 
+        li      $t4, 90
+        sw      $t4, ANGLE($0)
+        sw      $0,  ANGLE_CONTROL($0)
+skip_turn:
+        move    $a1, $a0                          # save prev right wall
+        li      $t1, 10    
+        sw      $t1, VELOCITY($0)                 # drive
+        j       infinite
 
 # Kernel Text
 .kdata
@@ -98,7 +118,10 @@ interrupt_dispatch: # Interrupt:
         j         done
 
 bonk_interrupt: 
-        sw        $v0, BONK_ACK               # acknowledge interrupt
+        sw        $a1, BONK_ACK($0)           # acknowledge interrupt
+        li        $a1, 180                    # turn 180 degrees
+        sw        $a1, ANGLE($0)
+        sw        $0,  ANGLE_CONTROL($0)
         j         interrupt_dispatch          # see if other interrupts are waiting
 
 request_puzzle_interrupt:
@@ -106,7 +129,7 @@ request_puzzle_interrupt:
 	j	  interrupt_dispatch	      # see if other interrupts are waiting
 
 timer_interrupt:
-        sw        $v0, TIMER_ACK              # acknowledge interrupt
+        sw        $a1, TIMER_ACK($0)          # acknowledge interrupt
         j         interrupt_dispatch          # see if other interrupts are waiting
 
 non_intrpt: # was some non-interrupt

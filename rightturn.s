@@ -38,30 +38,28 @@ REQUEST_PUZZLE_ACK      = 0xffff00d8
 .text
 main:
 	#Fill in your code here
-    li $t3, TIMER_INT_MASK
-    or $t3, $t3, BONK_INT_MASK
-    or $t3, $t3, 1
-    mtc0 $t3, $12
+    li      $t4, TIMER_INT_MASK         # timer interrupt enable bit
+    or      $t4, $t4, BONK_INT_MASK     # bonk interrupt bit
+    or      $t4, $t4, 1                 # global interrupt enable
+    mtc0    $t4, $12                    # set interrupt mask (Status register)
 
-for_loop:
-    li $a0, 10
-    sw $a0, VELOCITY($0)
+    # REQUEST TIMER INTERRUPT
+    # lw      $v0, TIMER($0)              # read current time
+    # jr      $ra                         #ret
+    lw      $a1, RIGHT_WALL_SENSOR        # prev right wall
+infinite:
+    lw      $a0, RIGHT_WALL_SENSOR        # 1 if wall to right
+    bne     $a0, $0, skip_turn
+    beq     $a0, $a1, skip_turn           # rotate 90 if 0
 
-    move $t1, $t0
-    lw $t0, RIGHT_WALL_SENSOR($0)
-    beq $t0, 1, for_loop
-
-    # if the previous rightwallsensor is 0, that means you are going right twice, which you don't want to do
-    beq $t1, 0, for_loop
-
-    li $a1, 90
-    sw $a1, ANGLE($0)
-
-    # set to 0 because you want to turn 90 degrees relative to the bot
-    li $a1, 0
-    sw $a1, ANGLE_CONTROL($0)
-
-    j for_loop
+    li      $t4, 90
+    sw      $t4, ANGLE($0)
+    sw      $0,  ANGLE_CONTROL($0)
+skip_turn:
+    move    $a1, $a0                      # save prev right wall
+    li      $t1, 10
+    sw      $t1, VELOCITY($0)             # drive
+    j       infinite
 
 .kdata
 chunkIH:    .space 28
@@ -104,18 +102,15 @@ interrupt_dispatch:            # Interrupt:
 
 bonk_interrupt:
     #Fill in your code here
-    sw      $v0, BONK_ACK($0)
-
-    li      $a1, 180
-    sw      $a1, ANGLE($0)
-
-    li      $a1, 0
-    sw      $a1, ANGLE_CONTROL($0)
-
+    sw        $a1, BONK_ACK($0)   # acknowledge interrupt
+    li        $a1, 180            # turn 180 degrees
+    sw        $a1, ANGLE($0)
+    sw        $0,  ANGLE_CONTROL($0)
     j       interrupt_dispatch    # see if other interrupts are waiting
 
 timer_interrupt:
-    sw       $v0, TIMER_ACK($0)
+    #Fill in your code here
+    sw        $a1, TIMER_ACK($0)   # acknowledge interrupt
     j        interrupt_dispatch    # see if other interrupts are waiting
 
 non_intrpt:                # was some non-interrupt
