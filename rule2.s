@@ -83,6 +83,8 @@ rule2:
     sw $s3, 16($sp) # board
     sw $s4, 20($sp) # k iterator
     sw $s5, 24($sp) # l iteator
+    sw $s6, 28($sp) # ii
+    sw $s7, 32($sp) # jj
 
     li $s0, 0
     li $s2, 0
@@ -127,7 +129,7 @@ loop_k_part_1_one:
 
 loop_k_part_2_one:
     add $s4, $s4, 1
-    beq $s4, $s0, loop_k_part1_one
+    beq $s4, $s0, loop_k_part_1_one
 
     mul $t2, $s4, 16
     add $t2, $t2, $s1
@@ -145,6 +147,35 @@ loop_j_part_2:
     bne ALL_VALUES, $t0, all_values_jsum_cond
     bne ALL_VALUES, $t1, all_values_isum_cond
 
+    move $a0, $s0
+    jal get_square_begin
+
+    move $s6, $v0
+
+    move $a0, $s1
+    jal get_square_begin
+
+    move $s7, $v0
+    li $t0, 0 # sum
+    move $s4, $s6 # ii iterator
+    add $t1, $s6, 4 # ii + 4
+    add $t2, $s7, 4 # jj + 4
+
+loop_k_two:
+    beq $s4, $t1, loop_j_part_3
+    move $s5, $s7
+
+loop_l_part_1:
+    beq $s5, $t2, loop_k_end
+
+    seq $t3, 
+loop_l_end:
+
+loop_k_end:
+    add $s4, $s4, 1
+    j loop_k_two
+
+loop_j_part_3:
 
 all_values_jsum_cond:
     not $t0, $t0
