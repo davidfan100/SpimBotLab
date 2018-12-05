@@ -7,3 +7,9 @@ We solve puzzles when we reach the treasure
 
 We will only break a wall if the treasure chest is only separated by one wall. Even if we have no keys, we would still want to solve it
 Optimizations: Checking other bot's position to see if it is worth it to go for the treasure
+
+--
+
+For our modified A* algorithm, we will get the closest treasure from the treasure map struct and use the A* search algorithm to try and get to it. 
+If our bot happens to see another treasure within its circle of 9 tiles it'll stop pathfinding, go to the square, and get the treasure. 
+It'll then restart the A* algorithm with an updated closest treasure to look for.

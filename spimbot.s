@@ -48,6 +48,7 @@ REQUEST_PUZZLE_ACK      = 0xffff00d8
 dfs_tree:       .word 0:128                         # puzzle is stored as tree-based array
 puzzle_res:     .word 1                             # the solution to the puzzle
 puzzle_start:   .word 1                             # boolean flag to tell us when to start requesting puzzles
+treasure_map:   .word 0:404                         # treasure map array, each treasure has x and y location, and point value
 
 #Insert whatever static memory you need here
 
@@ -100,7 +101,7 @@ move_south: # function to move south, to be used when we do actual pathfinding
         sw        $t4, ANGLE($0)
         sw        $t5, ANGLE_CONTROL($0)
         j         infinite
-solve_puzzle: # function to solve a puzzle
+solve_puzzle: # function to solve a puzzle (must have requested a puzzle first)
         la        $a0, dfs_tree
         li        $a1, 1                        # int i
         li        $a2, 1                        # int input
@@ -113,6 +114,10 @@ req_puzzle: # function to request a puzzle
         la        $t2, dfs_tree
         sw        $t2, REQUEST_PUZZLE($0)
         sw        $0, puzzle_start($0)
+        j         infinite
+load_treasure_map: # get the treasure_map struct
+        la        $t2, treasure_map
+        sw        $t2, TREASURE_MAP($0)
         j         infinite
 pick_treasure: # function to pick up treasure
         sw        $0, PICK_TREASURE($0)
