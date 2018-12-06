@@ -75,7 +75,7 @@ get_square_begin:
 
 
 rule2:
-    sub $sp, $sp ___
+    sub $sp, $sp, 28
     sw $ra, 0($sp)
     sw $s0, 4($sp) # i iterator
     sw $s1, 8($sp) # j iterator
@@ -168,14 +168,43 @@ loop_k_two:
 loop_l_part_1:
     beq $s5, $t2, loop_k_end
 
-    seq $t3, 
+    seq $t3, $s4, $s0
+    seq $t4, $s5, $s1
+
+    and $t5, $t3, $t4
+    beq $t5, 1, loop_l_end
+
+    mul $t5, $s4, 16
+    add $t5, $t5, $s5
+    mul $t5, $t5, 2
+    add $t5, $s3, $t5
+    lhu $t5, 0($t5)
+
+    or $t0, $t0, $t5
+
 loop_l_end:
+    add $s5, $s5, 1
+    j loop_l_part_1
 
 loop_k_end:
     add $s4, $s4, 1
     j loop_k_two
 
 loop_j_part_3:
+    beq ALL_VALUES, $t0, loop_end_j
+
+    not $t1, $t0
+    and $t2, $t1, ALL_VALUES
+
+    mul $t3, $s0, 16
+    add $t3, $t3, $s1
+    mul $t3, $t3, 2
+    add $t3, $t3, $s3
+    sh $t2, 0($t3)
+
+    move $s2, 1
+
+    j loop_end_j
 
 all_values_jsum_cond:
     not $t0, $t0
@@ -202,11 +231,15 @@ loop_end_i:
     j loop_1
 
 end:
-    lw $ra, 0($sp)
-    lw $s0, 4($sp) # i iterator
-    lw $s1, 8($sp) # j iterator
-    lw $s2, 12($sp) # changed
-    lw $s3, 16($sp)
-    add $sp, $sp ___
+    sw $ra, 0($sp)
+    sw $s0, 4($sp) # i iterator
+    sw $s1, 8($sp) # j iterator
+    sw $s2, 12($sp) # changed
+    sw $s3, 16($sp) # board
+    sw $s4, 20($sp) # k iterator
+    sw $s5, 24($sp) # l iteator
+    sw $s6, 28($sp) # ii
+    sw $s7, 32($sp) # jj
+    add $sp, $sp, 28
 
     jr $ra
