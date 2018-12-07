@@ -236,12 +236,16 @@ main:
  	# jal	print_board                # all "*" should be removed
 
 	# jal     print_newline
+	la $a0, board1
+	jal print_board
 
 board1_solve:
  	la	$a0, board1                # board with 4 big squares each missing 1 entry
 	jal rule1
 
 	move $s0, $v0
+
+	la $a0, board1
  	jal	rule2
 	
 	or $t0, $s0, $v0
