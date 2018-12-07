@@ -51,10 +51,8 @@
 
 # the address of A[0][0] + (((i*N) + j) * sizeof(element))
 
-.data
-ALL_VALUES: .word 65535
 
-.globl has_single_bit_set
+.text
 has_single_bit_set:
 	beq	$a0, 0, hsbs_ret_zero	# return 0 if value == 0
 	sub	$a1, $a0, 1
@@ -62,20 +60,195 @@ has_single_bit_set:
 	bne	$a1, 0, hsbs_ret_zero	# return 0 if (value & (value - 1)) == 0
 	li	$v0, 1
 	jr	$ra
+
 hsbs_ret_zero:
 	li	$v0, 0
 	jr	$ra
 
-.globl get_square_begin
 get_square_begin:
 	# round down to the nearest multiple of 4
 	div	$v0, $a0, 4
 	mul	$v0, $v0, 4
 	jr	$ra
 
+rule1:
+	sub $sp, $sp, 32
+	sw $ra, 0($sp)
+	sw $s0, 4($sp) ## changed
+	sw $s1, 8($sp) ## i
+	sw $s2, 12($sp) ## j
+	sw $s3, 16($sp) ## board
+	sw $s4, 20($sp) ## board[i][j]
+	sw $s5, 24($sp) ## ii
+	sw $s6, 28($sp) ## jj
+
+	move $s3, $a0
+	li $t0, 0 # changed
+	move $s0, $t0
+	li $t1, 0 # i
+loop_rule_1:
+	li $t2, 0 # j
+
+	blt $t1, 16, loop_rule_2
+	move $v0, $s0
+	j end_1
+
+loop_rule_2:
+	move $s1, $t1
+	move $s2, $t2
+
+	mul $t3, $s1, 16
+	add $t3, $t3, $s2
+	mul $t3, $t3, 2
+	add $t3, $s3, $t3
+	lhu $a0, 0($t3)
+
+	move $s4, $a0 ## moving value board[i][j] to the argument reg
+
+	jal has_single_bit_set
+
+	li $t1, 0 # store values of k
+	beq $v0, 1, loop_for_has_bit_1
+
+	j for_next_rule_loop
+	
+for_next_rule_loop:
+	add $t2, $s2, 1
+	move $t1, $s1
+	blt $t2, 16, loop_rule_2
+
+	add $t1, $s1, 1
+
+	j loop_rule_1
+
+loop_for_has_bit_1: 
+	bge $t1, 16, loop_for_has_bit_2_prep
+	bne $t1, $s2, if_row 
+	bne $t1, $s1, if_column
+
+	add $t1, $t1, 1
+
+	j loop_for_has_bit_1
+
+if_row:
+	mul $t2, $s1, 16
+	add $t2, $t2, $t1
+	mul $t2, $t2, 2
+	add $t2, $s3, $t2
+	lhu $t3, 0($t2)   #obtaining board[i][k] value
+
+	and $t4, $t3, $s4
+	bne $t4, 0, if_row_changing
+	bne $t1, $s1, if_column
+
+	add $t1, $t1, 1
+	j loop_for_has_bit_1
+
+if_row_changing:
+	not $t4, $s4
+
+	and $t5, $t3, $t4
+	sh $t5, 0($t2)
+	li $s0, 1
+
+	bne $t1, $s1, if_column
+	add $t1, $t1, 1
+
+	j loop_for_has_bit_1
+	
+if_column:
+	mul $t2, $t1, 16
+	add $t2, $t2, $s2
+	mul $t2, $t2, 2
+	add $t2, $s3, $t2
+	lhu $t3, 0($t2) #obtaining board[k][j]
+
+	and $t4, $t3, $s4
+	bne $t4, 0, if_column_changing
+	add $t1, $t1, 1
+	j loop_for_has_bit_1
+
+if_column_changing:
+	not $t4, $s4
+
+	and $t5, $t3, $t4
+	sh $t5, 0($t2)
+	li $s0, 1
+
+	add $t1, $t1, 1
+	j loop_for_has_bit_1
+
+loop_for_has_bit_2_prep:
+	move $a0, $s1
+	jal get_square_begin
+	
+	move $s5, $v0
+	move $a0, $s2
+
+	jal get_square_begin
+
+	move $s6, $v0
+
+	move $t0, $s5 ## k
+	add $t2, $s5, 4## ii + 4 //because the size of each square is 4 x 4
+	add $t3, $s6, 4 ## jj+ 4
+	j loop_for_has_bit_2_k
+
+loop_for_has_bit_2_k:
+	bge $t0, $t2, for_next_rule_loop
+	move $t1, $s6 ## l
+
+loop_for_has_bit_2_l:
+	seq $t4, $t0, $s1
+	seq $t5, $t1, $s2
+
+	and $t6, $t4, $t5
+
+	bne $t6, 0, for_next_rule_loop_bit
+
+	mul $t4, $t0, 16
+	add $t4, $t4, $t1
+	mul $t4, $t4, 2
+	add $t4, $t4, $s3
+	lhu $t5, 0($t4)
+
+	and $t6, $t5, $s4
+	bne $t6, 0, if_square_changing
+
+	j for_next_rule_loop_bit
+
+if_square_changing:
+	not $t6, $s4
+
+	and $t6, $t5, $t6
+	sh $t6, 0($t4)
+
+	j for_next_rule_loop_bit
+
+for_next_rule_loop_bit:
+	add $t1, $t1, 1
+	
+	blt $t1, $t3, loop_for_has_bit_2_l
+
+	add $t0, $t0, 1
+	j loop_for_has_bit_2_k
+
+end_1:
+	lw $s6, 28($sp) # get_square_begin(j)
+	lw $s5, 24($sp) # get_square_begin(i)
+	lw $s4, 20($sp) ## board[i][j]
+	lw $s3, 16($sp) ## board
+	lw $s2, 12($sp) ## j
+	lw $s1, 8($sp) ## i
+	lw $s0, 4($sp) ## changed
+	lw $ra, 0($sp)
+	add $sp, $sp, 32
+	
+	jr $ra
+
 
 rule2:
-    sub $sp, $sp, 28
+    sub $sp, $sp, 36
     sw $ra, 0($sp)
     sw $s0, 4($sp) # i iterator
     sw $s1, 8($sp) # j iterator
@@ -93,9 +266,9 @@ rule2:
 loop_i:
     li $s1, 0
     
-    blt $s0, 16, loop_j
+    blt $s0, 16, loop_j_part_1
     move $v0, $s2
-    j end
+    j end_2
 
 loop_j_part_1:
     beq $s1, 16, loop_end_i
@@ -144,8 +317,9 @@ loop_j_part_2:
     add $t2, $t2, $s1
     mul $t2, $t2, 2
     add $t2, $t2, $s3
-    bne ALL_VALUES, $t0, all_values_jsum_cond
-    bne ALL_VALUES, $t1, all_values_isum_cond
+    li $t7, 65535
+    bne $t7, $t0, all_values_jsum_cond
+    bne $t7, $t1, all_values_isum_cond
 
     move $a0, $s0
     jal get_square_begin
@@ -157,7 +331,7 @@ loop_j_part_2:
 
     move $s7, $v0
     li $t0, 0 # sum
-    move $s4, $s6 # ii iterator
+    move $s4, $s6 # k iterator
     add $t1, $s6, 4 # ii + 4
     add $t2, $s7, 4 # jj + 4
 
@@ -191,10 +365,11 @@ loop_k_end:
     j loop_k_two
 
 loop_j_part_3:
-    beq ALL_VALUES, $t0, loop_end_j
+    la $t3, ALL_VALUES
+    beq $t3, $t0, loop_end_j
 
     not $t1, $t0
-    and $t2, $t1, ALL_VALUES
+    and $t2, $t1, $t3
 
     mul $t3, $s0, 16
     add $t3, $t3, $s1
@@ -202,13 +377,14 @@ loop_j_part_3:
     add $t3, $t3, $s3
     sh $t2, 0($t3)
 
-    move $s2, 1
+    li $s2, 1
 
     j loop_end_j
 
 all_values_jsum_cond:
     not $t0, $t0
-    and $t3, $t0, ALL_VALUES
+    li $t3, 65535
+    and $t3, $t0, $t3
     sh $t3, 0($t2)
     li $s2, 1
     
@@ -216,7 +392,8 @@ all_values_jsum_cond:
 
 all_values_isum_cond:
     not $t1, $t1
-    and $t3, $t1, ALL_VALUES
+    li $t3, 65535
+    and $t3, $t1, $t3
     sh $t3, 0($t2)
     li $s2, 1
     
@@ -224,22 +401,22 @@ all_values_isum_cond:
 
 loop_end_j:
     add $s1, $s1, 1
-    j loop_j
+    j loop_j_part_1
 
 loop_end_i:
     add $s0, $s0, 1
-    j loop_1
+    j loop_i
 
-end:
-    sw $ra, 0($sp)
-    sw $s0, 4($sp) # i iterator
-    sw $s1, 8($sp) # j iterator
-    sw $s2, 12($sp) # changed
-    sw $s3, 16($sp) # board
-    sw $s4, 20($sp) # k iterator
-    sw $s5, 24($sp) # l iteator
-    sw $s6, 28($sp) # ii
-    sw $s7, 32($sp) # jj
-    add $sp, $sp, 28
+end_2:
+    lw $ra, 0($sp)
+    lw $s0, 4($sp) # i iterator
+    lw $s1, 8($sp) # j iterator
+    lw $s2, 12($sp) # changed
+    lw $s3, 16($sp) # board
+    lw $s4, 20($sp) # k iterator
+    lw $s5, 24($sp) # l iteator
+    lw $s6, 28($sp) # ii
+    lw $s7, 32($sp) # jj
+    add $sp, $sp, 36
 
     jr $ra
