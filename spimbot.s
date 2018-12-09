@@ -182,15 +182,18 @@ rule1:
 	move $s3, $a0
 	li $t0, 0 # changed
 	move $s0, $t0
-	li $s1, 0 # i
+	li $t1, 0 # i
 loop_rule_1:
-	li $s2, 0 # j
+	li $t2, 0 # j
 
-	blt $s1, 16, loop_rule_2
+	blt $t1, 16, loop_rule_2
 	move $v0, $s0
 	j end
 
 loop_rule_2:
+	move $s1, $t1
+	move $s2, $t2
+
 	mul $t3, $s1, 16
 	add $t3, $t3, $s2
 	mul $t3, $t3, 2
@@ -207,7 +210,7 @@ loop_rule_2:
 	j for_next_rule_loop
 	
 for_next_rule_loop:
-	add $s2, $s2, 1
+	add $t2, $s2, 1
 	move $t1, $s1
 	blt $t2, 16, loop_rule_2
 
@@ -463,7 +466,7 @@ loop_k_end:
         j         loop_k_two
 
 loop_j_part_3:
-        la        $t3, ALL_VALUES
+        la        $t3, 65535
         beq       $t3, $t0, loop_end_j
 
         not       $t1, $t0
