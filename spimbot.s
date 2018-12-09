@@ -46,7 +46,7 @@ REQUEST_PUZZLE_ACK      = 0xffff00d8
 #};
 .data
 sudoku:       .word 0:128                           # puzzle is stored as tree-based array
-puzzle_res:     .word 1                             # the solution to the puzzle
+puzzle_res:     .word 0:128                             # the solution to the puzzle
 puzzle_start:   .word 1                             # boolean flag to tell us when to start requesting puzzles
 puzzle_received: .word 1                            # Let the program know that the puzzle has been stored into sudoku
 treasure_map:   .word 0:404                         # treasure map array, each treasure has x and y location, and point value
@@ -58,6 +58,7 @@ main:
         #Fill in your code here
         li        $t4, TIMER_INT_MASK               # timer interrupt enable bit
         or        $t4, $t4, BONK_INT_MASK           # bonk interrupt bit
+        or        $t4, $t4, REQUEST_PUZZLE_INT_MASK # request puzzle int mask
         or        $t4, $t4, 1                       # global interrupt enable
         mtc0      $t4, $12                          # set interrupt mask (Status register)
         
@@ -67,6 +68,7 @@ main:
         lw        $a1, RIGHT_WALL_SENSOR            # prev right wall
 	j 	  treasure_map
 infinite:     
+        # need to write code to keep track of whenever we have found a treasure
         lw        $a0, RIGHT_WALL_SENSOR            # 1 if wall to right
         bne       $a0, $0, skip_turn    
         beq       $a0, $a1, skip_turn               # rotate 90 if 0
@@ -111,7 +113,8 @@ solve_puzzle: # function to solve a puzzle (must have requested a puzzle first)
         jal       rule2
         or        $t0, $s0, $v0
         bne       $t0, 1, solve_puzzle
-        sw        $v0, puzzle_res($0)
+        la        $a0, sudoku
+        sw        $a0, puzzle_res($0)
         la        $t2, puzzle_res
         sw        $t2, SUBMIT_SOLUTION($0)
         j         infinite
@@ -127,6 +130,9 @@ load_treasure_map: # get the treasure_map struct
 pick_treasure: # function to pick up treasure
         sw        $0, PICK_TREASURE($0)
         j         infinite
+
+
+
 
 has_single_bit_set:
 	beq	  $a0, 0, hsbs_ret_zero	# return 0 if value == 0
