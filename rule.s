@@ -396,8 +396,6 @@ all_values_isum_cond:
     and $t3, $t1, $t3
     sh $t3, 0($t2)
     li $s2, 1
-    
-    j loop_end_j
 
 loop_end_j:
     add $s1, $s1, 1

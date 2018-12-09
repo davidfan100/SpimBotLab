@@ -236,8 +236,8 @@ main:
  	# jal	print_board                # all "*" should be removed
 
 	# jal     print_newline
-	la $a0, board1
-	jal print_board
+#	la $a0, board1
+#	jal print_board
 
 board1_solve:
  	la	$a0, board1                # board with 4 big squares each missing 1 entry
