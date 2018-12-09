@@ -45,10 +45,9 @@ REQUEST_PUZZLE_ACK      = 0xffff00d8
 #    struct spim_treasure treasures[50];
 #};
 .data
-sudoku:       .word 0:128                           # puzzle is stored as tree-based array
-puzzle_res:     .word 0:128                             # the solution to the puzzle
+sudoku:       .word 128                       # puzzle is stored as tree-based array
+puzzle_res:     .word 1                             # the solution to the puzzle
 puzzle_start:   .word 1                             # boolean flag to tell us when to start requesting puzzles
-puzzle_received: .word 1                            # Let the program know that the puzzle has been stored into sudoku
 treasure_map:   .word 0:404                         # treasure map array, each treasure has x and y location, and point value
 
 #Insert whatever static memory you need here
@@ -66,7 +65,7 @@ main:
         # lw      $v0, TIMER($0)                    # read current time
         # jr      $ra                               # ret
         lw        $a1, RIGHT_WALL_SENSOR            # prev right wall
-	j 	  treasure_map
+	j 	  req_puzzle
 infinite:     
         # need to write code to keep track of whenever we have found a treasure
         lw        $a0, RIGHT_WALL_SENSOR            # 1 if wall to right
@@ -106,23 +105,35 @@ move_south: # function to move south, to be used when we do actual pathfinding
         sw        $t5, ANGLE_CONTROL($0)
         j         infinite
 solve_puzzle: # function to solve a puzzle (must have requested a puzzle first)
+        # sub       $sp, $sp, 8
+        # sw        $ra, 0($sp)
+        # sw        $s0, 4($sp)
         la        $a0, sudoku
         jal       rule1
-        move      $s0, $v0
-        la        $a0, sudoku
-        jal       rule2
-        or        $t0, $s0, $v0
-        bne       $t0, 1, solve_puzzle
+        # move      $s0, $v0
+        # la        $a0, sudoku
+        # jal       rule2
+        # or        $t0, $s0, $v0
+        bne       $v0, 0, solve_puzzle
         la        $a0, sudoku
         sw        $a0, puzzle_res($0)
         la        $t2, puzzle_res
         sw        $t2, SUBMIT_SOLUTION($0)
-        j         infinite
+        # lw        $ra, 0($sp)
+        # lw        $s0, 4($sp)
+        # add       $sp, $sp, 8
+        j         req_puzzle
 req_puzzle: # function to request a puzzle
         la        $t2, sudoku
         sw        $t2, REQUEST_PUZZLE($0)
         sw        $0, puzzle_start($0)
-        j         infinite
+        # j         infinite
+
+puzzle_wait:
+        la        $t0, puzzle_start
+        bne       $t0, $0, solve_puzzle
+        j         puzzle_wait
+
 load_treasure_map: # get the treasure_map struct
         la        $t2, treasure_map
         sw        $t2, TREASURE_MAP($0)
@@ -152,182 +163,188 @@ get_square_begin:
 	mul	  $v0, $v0, 4
 	jr	  $ra
 
+##
+##
+##      Rule 1 Implementation
+##
+##
 rule1:
-	sub       $sp, $sp, 32
-	sw        $ra, 0($sp)
-	sw        $s0, 4($sp) ## changed
-	sw        $s1, 8($sp) ## i
-	sw        $s2, 12($sp) ## j
-	sw        $s3, 16($sp) ## board
-	sw        $s4, 20($sp) ## board[i][j]
-	sw        $s5, 24($sp) ## ii
-	sw        $s6, 28($sp) ## jj
+	sub $sp, $sp, 32
+	sw $ra, 0($sp)
+	sw $s0, 4($sp) ## changed
+	sw $s1, 8($sp) ## i
+	sw $s2, 12($sp) ## j
+	sw $s3, 16($sp) ## board
+	sw $s4, 20($sp) ## board[i][j]
+	sw $s5, 24($sp) ## ii
+	sw $s6, 28($sp) ## jj
 
-	move      $s3, $a0
-	li        $t0, 0 # changed
-	move      $s0, $t0
-	li        $t1, 0 # i
+	move $s3, $a0
+	li $t0, 0 # changed
+	move $s0, $t0
+	li $s1, 0 # i
 loop_rule_1:
-	li        $t2, 0 # j
+	li $s2, 0 # j
 
-	blt       $t1, 16, loop_rule_2
-	move      $v0, $s0
-	j         end_1
+	blt $s1, 16, loop_rule_2
+	move $v0, $s0
+	j end
 
 loop_rule_2:
-	move      $s1, $t1
-	move      $s2, $t2
+	mul $t3, $s1, 16
+	add $t3, $t3, $s2
+	mul $t3, $t3, 2
+	add $t3, $s3, $t3
+	lhu $a0, 0($t3)
 
-	mul       $t3, $s1, 16
-	add       $t3, $t3, $s2
-	mul       $t3, $t3, 2
-	add       $t3, $s3, $t3
-	lhu       $a0, 0($t3)
+	move $s4, $a0 ## moving value board[i][j] to the argument reg
 
-	move      $s4, $a0 ## moving value board[i][j] to the argument reg
+	jal has_single_bit_set
 
-	jal       has_single_bit_set
+	li $t1, 0 # store values of k
+	beq $v0, 1, loop_for_has_bit_1
 
-	li        $t1, 0 # store values of k
-	beq       $v0, 1, loop_for_has_bit_1
-
-	j         for_next_rule_loop
+	j for_next_rule_loop
 	
 for_next_rule_loop:
-	add       $t2, $s2, 1
-	move      $t1, $s1
-	blt       $t2, 16, loop_rule_2
+	add $s2, $s2, 1
+	move $t1, $s1
+	blt $t2, 16, loop_rule_2
 
-	add       $t1, $s1, 1
+	add $t1, $s1, 1
 
-	j 	  loop_rule_1
+	j loop_rule_1
 
 loop_for_has_bit_1: 
-	bge 	  $t1, 16, loop_for_has_bit_2_prep
-	bne 	  $t1, $s2, if_row 
-	bne 	  $t1, $s1, if_column
+	bge $t1, 16, loop_for_has_bit_2_prep
+	bne $t1, $s2, if_row 
+	bne $t1, $s1, if_column
 
-	add 	  $t1, $t1, 1
+	add $t1, $t1, 1
 
-	j 	  loop_for_has_bit_1
+	j loop_for_has_bit_1
 
 if_row:
-	mul 	  $t2, $s1, 16
-	add 	  $t2, $t2, $t1
-	mul 	  $t2, $t2, 2
-	add 	  $t2, $s3, $t2
-	lhu 	  $t3, 0($t2)   #obtaining board[i][k] value
+	mul $t2, $s1, 16
+	add $t2, $t2, $t1
+	mul $t2, $t2, 2
+	add $t2, $s3, $t2
+	lhu $t3, 0($t2)   #obtaining board[i][k] value
 
-	and 	  $t4, $t3, $s4
-	bne 	  $t4, 0, if_row_changing
-	bne 	  $t1, $s1, if_column
+	and $t4, $t3, $s4
+	bne $t4, 0, if_row_changing
+	bne $t1, $s1, if_column
 
-	add 	  $t1, $t1, 1
-	j 	  loop_for_has_bit_1
+	add $t1, $t1, 1
+	j loop_for_has_bit_1
 
 if_row_changing:
-	not 	  $t4, $s4
+	not $t4, $s4
 
-	and 	  $t5, $t3, $t4
-	sh 	  $t5, 0($t2)
-	li 	  $s0, 1
+	and $t5, $t3, $t4
+	sh $t5, 0($t2)
+	li $s0, 1
 
-	bne 	  $t1, $s1, if_column
-	add 	  $t1, $t1, 1
+	bne $t1, $s1, if_column
+	add $t1, $t1, 1
 
-	j 	  loop_for_has_bit_1
+	j loop_for_has_bit_1
 	
 if_column:
-	mul       $t2, $t1, 16
-	add       $t2, $t2, $s2
-	mul       $t2, $t2, 2
-	add       $t2, $s3, $t2
-	lhu       $t3, 0($t2) #obtaining board[k][j]
+	mul $t2, $t1, 16
+	add $t2, $t2, $s2
+	mul $t2, $t2, 2
+	add $t2, $s3, $t2
+	lhu $t3, 0($t2) #obtaining board[k][j]
 
-	and       $t4, $t3, $s4
-	bne       $t4, 0, if_column_changing
-	add       $t1, $t1, 1
-	j         loop_for_has_bit_1
+	and $t4, $t3, $s4
+	bne $t4, 0, if_column_changing
+	add $t1, $t1, 1
+	j loop_for_has_bit_1
 
 if_column_changing:
-	not       $t4, $s4
+	not $t4, $s4
 
-	and       $t5, $t3, $t4
-	sh        $t5, 0($t2)
-	li        $s0, 1
+	and $t5, $t3, $t4
+	sh $t5, 0($t2)
+	li $s0, 1
 
-	add       $t1, $t1, 1
-	j         loop_for_has_bit_1
+	add $t1, $t1, 1
+	j loop_for_has_bit_1
 
 loop_for_has_bit_2_prep:
-	move      $a0, $s1
-	jal       get_square_begin
+	move $a0, $s1
+	jal get_square_begin
 	
-	move      $s5, $v0
-	move      $a0, $s2
+	move $s5, $v0
+	move $a0, $s2
 
-	jal       get_square_begin
+	jal get_square_begin
 
-	move      $s6, $v0
+	move $s6, $v0
 
-	move      $t0, $s5 ## k
-	add       $t2, $s5, 4## ii + 4 //because the size of each square is 4 x 4
-	add       $t3, $s6, 4 ## jj+ 4
-	j         loop_for_has_bit_2_k
+	move $t0, $s5 ## k
+	add $t2, $s5, 4## ii + 4 //because the size of each square is 4 x 4
+	add $t3, $s6, 4 ## jj+ 4
+	j loop_for_has_bit_2_k
 
 loop_for_has_bit_2_k:
-	bge       $t0, $t2, for_next_rule_loop
-	move      $t1, $s6 ## l
+	bge $t0, $t2, for_next_rule_loop
+	move $t1, $s6 ## l
 
 loop_for_has_bit_2_l:
-	seq       $t4, $t0, $s1
-	seq       $t5, $t1, $s2
+	seq $t4, $t0, $s1
+	seq $t5, $t1, $s2
 
-	and       t6, $t4, $t5
+	and $t6, $t4, $t5
 
-	bne       $t6, 0, for_next_rule_loop_bit
+	bne $t6, 0, for_next_rule_loop_bit
 
-	mul       $t4, $t0, 16
-	add       $t4, $t4, $t1
-	mul       $t4, $t4, 2
-	add       $t4, $t4, $s3
-	lhu       $t5, 0($t4)
+	mul $t4, $t0, 16
+	add $t4, $t4, $t1
+	mul $t4, $t4, 2
+	add $t4, $t4, $s3
+	lhu $t5, 0($t4)
 
-	and       $t6, $t5, $s4
-	bne       $t6, 0, if_square_changing
+	and $t6, $t5, $s4
+	bne $t6, 0, if_square_changing
 
-	j         for_next_rule_loop_bit
+	j for_next_rule_loop_bit
 
 if_square_changing:
-	not       $t6, $s4
+	not $t6, $s4
 
-	and       $t6, $t5, $t6
-	sh        $t6, 0($t4)
+	and $t6, $t5, $t6
+	sh $t6, 0($t4)
 
-	j         for_next_rule_loop_bit
+	j for_next_rule_loop_bit
 
 for_next_rule_loop_bit:
-	add       $t1, $t1, 1
+	add $t1, $t1, 1
 	
-	blt       $t1, $t3, loop_for_has_bit_2_l
+	blt $t1, $t3, loop_for_has_bit_2_l
 
-	add       $t0, $t0, 1
-	j         loop_for_has_bit_2_k
+	add $t0, $t0, 1
+	j loop_for_has_bit_2_k
 
-end_1:
-	lw        $s6, 28($sp) # get_square_begin(j)
-	lw        $s5, 24($sp) # get_square_begin(i)
-	lw        $s4, 20($sp) ## board[i][j]
-	lw        $s3, 16($sp) ## board
-	lw        $s2, 12($sp) ## j
-	lw        $s1, 8($sp) ## i
-	lw        $s0, 4($sp) ## changed
-	lw        $ra, 0($sp)
-	add       $sp, $sp, 32
+end:
+	lw $s6, 28($sp) # get_square_begin(j)
+	lw $s5, 24($sp) # get_square_begin(i)
+	lw $s4, 20($sp) ## board[i][j]
+	lw $s3, 16($sp) ## board
+	lw $s2, 12($sp) ## j
+	lw $s1, 8($sp) ## i
+	lw $s0, 4($sp) ## changed
+	lw $ra, 0($sp)
+	add $sp, $sp, 32
 	
-	jr        $ra
+	jr $ra
 
-
+##
+##
+## Rule 2 Implementation
+##
+##
 rule2:
         sub       $sp, $sp, 36
         sw        $ra, 0($sp)
@@ -552,10 +569,9 @@ bonk_interrupt:
         j         interrupt_dispatch          # see if other interrupts are waiting
 
 request_puzzle_interrupt:
-	sw	  $v0, REQUEST_PUZZLE_ACK     # acknowledge interrupt
-        la        $t0, puzzle_received
+	sw	  $a1, REQUEST_PUZZLE_ACK     # acknowledge interrupt
         li        $t1, 1
-        sw        $t1, 0($t0)
+        sw        $t1, puzzle_start
 	j	  interrupt_dispatch	      # see if other interrupts are waiting
 
 timer_interrupt:
