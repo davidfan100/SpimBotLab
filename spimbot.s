@@ -130,8 +130,9 @@ req_puzzle: # function to request a puzzle
         # j         infinite
 
 puzzle_wait:
-        la        $t0, puzzle_start
+        lw        $t0, puzzle_start
         bne       $t0, $0, solve_puzzle
+        sw        $0, VELOCITY($0)
         j         puzzle_wait
 
 load_treasure_map: # get the treasure_map struct
