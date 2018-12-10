@@ -71,7 +71,7 @@ main:
         lw      $a1, RIGHT_WALL_SENSOR            # prev right wall
         sw      $a1, prev_wall($0)
         sw      $0, puzzle_requested
-
+        j       load_treasure_map
 begin_infinite:
         # lw        $t0, puzzle_requested
         # beq       $t0, 0, req_puzzle
@@ -93,6 +93,7 @@ skip_turn:
         sw      $t2, prev_wall($0)
         li      $t1, 10    
         sw      $t1, VELOCITY($0)                 # drive
+        j       find_closest_treasure
         j       begin_infinite
 move_east: # function to move east, to be used when we do actual pathfinding
         li      $t4, 0
