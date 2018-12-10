@@ -19,7 +19,7 @@ RIGHT_WALL_SENSOR 	= 0xffff0054
 PICK_TREASURE           = 0xffff00e0
 TREASURE_MAP            = 0xffff0058
 MAZE_MAP                = 0xffff0050
-
+GET_KEYS                = 0xffff00e4
 REQUEST_PUZZLE          = 0xffff00d0
 SUBMIT_SOLUTION         = 0xffff00d4
 
@@ -49,9 +49,9 @@ REQUEST_PUZZLE_ACK      = 0xffff00d8
 sudoku:       .space 512                       # puzzle is stored as tree-based array
 puzzle_res:     .word 1                             # the solution to the puzzle
 puzzle_start:   .word 1                             # boolean flag to tell us when to start requesting puzzles
-bool_for_rule_1: .word 1
+puzzle_requested: .word 1                           # boolean flag to say that a puzzle is being requested
 treasure_map:   .word 0:404                         # treasure map array, each treasure has x and y location, and point value
-
+prev_wall:      .word 1
 #Insert whatever static memory you need here
 
 .text
@@ -67,21 +67,31 @@ main:
         # lw      $v0, TIMER($0)                    # read current time
         # jr      $ra                               # ret
         lw        $a1, RIGHT_WALL_SENSOR            # prev right wall
-	j 	  req_puzzle
+        sw        $a1, prev_wall($0)
+        sw        $0, puzzle_requested
+
+begin_infinite:
+        # lw        $t0, puzzle_requested
+        # beq       $t0, 0, req_puzzle
+        lw        $t0, puzzle_start
+        beq       $t0, 1, solve_puzzle
 infinite:     
         # need to write code to keep track of whenever we have found a treasure
-        lw        $a0, RIGHT_WALL_SENSOR            # 1 if wall to right
-        bne       $a0, $0, skip_turn    
-        beq       $a0, $a1, skip_turn               # rotate 90 if 0
+        lw        $t2, RIGHT_WALL_SENSOR            # 1 if wall to right
+        lw        $t3, prev_wall($0)
+        bne       $t2, $0, skip_turn   
+        beq       $t2, $t3, skip_turn               # rotate 90 if 0
   
         li        $t4, 90
         sw        $t4, ANGLE($0)
         sw        $0,  ANGLE_CONTROL($0)
+
 skip_turn:  
-        move      $a1, $a0                          # save prev right wall
+        # move      $a1, $a0                          # save prev right wall
+        sw        $t2, prev_wall($0)
         li        $t1, 10    
         sw        $t1, VELOCITY($0)                 # drive
-        j         infinite
+        j         begin_infinite
 move_east: # function to move east, to be used when we do actual pathfinding
         li        $t4, 0
         li        $t5, 1
@@ -117,21 +127,24 @@ solve_puzzle: # function to solve a puzzle (must have requested a puzzle first)
         bne       $v0, 0, solve_puzzle
         la        $a0, sudoku
         sw        $a0, SUBMIT_SOLUTION($0)
-        j         req_puzzle
+        sw        $0, puzzle_requested($0)
+        j         infinite
 req_puzzle: # function to request a puzzle
         la        $t2, sudoku
         sw        $t2, REQUEST_PUZZLE($0)
         sw        $0, puzzle_start($0)
+        li        $t0, 1
+        sw        $t0, puzzle_requested($0)
         # li $s0, 0
         # j         infinite
-
-puzzle_wait:
-        lw        $s0, puzzle_start
-        # lw        $s0, 0($sp)
-        # add       $sp, $sp, 8
-        bne       $s0, $0, solve_puzzle
-        sw        $0, VELOCITY($0)
-        j         puzzle_wait
+        j         infinite
+# puzzle_wait:
+#         lw        $s0, puzzle_start
+#         # lw        $s0, 0($sp)
+#         # add       $sp, $sp, 8
+#         bne       $s0, $0, solve_puzzle
+#         sw        $0, VELOCITY($0)
+#         j         puzzle_wait
 
 load_treasure_map: # get the treasure_map struct
         la        $t2, treasure_map
@@ -523,8 +536,6 @@ request_puzzle_interrupt:
 	sw	  $a1, REQUEST_PUZZLE_ACK($0)     # acknowledge interrupt
         li        $t1, 1
         sw        $t1, puzzle_start
-        # li         $s0, 1
-        # sw         $s0, 0($sp)
 	j	  interrupt_dispatch	      # see if other interrupts are waiting
 
 timer_interrupt:
