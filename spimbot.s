@@ -46,9 +46,10 @@ REQUEST_PUZZLE_ACK      = 0xffff00d8
 #    struct spim_treasure treasures[50];
 #};
 .data
-sudoku:       .word 1                       # puzzle is stored as tree-based array
-puzzle_res:     .space 1                             # the solution to the puzzle
+sudoku:       .space 512                       # puzzle is stored as tree-based array
+puzzle_res:     .word 1                             # the solution to the puzzle
 puzzle_start:   .word 1                             # boolean flag to tell us when to start requesting puzzles
+bool_for_rule_1: .word 1
 treasure_map:   .word 0:404                         # treasure map array, each treasure has x and y location, and point value
 
 #Insert whatever static memory you need here
@@ -106,33 +107,29 @@ move_south: # function to move south, to be used when we do actual pathfinding
         sw        $t5, ANGLE_CONTROL($0)
         j         infinite
 solve_puzzle: # function to solve a puzzle (must have requested a puzzle first)
-        # sub       $sp, $sp, 8
-        # sw        $ra, 0($sp)
-        # sw        $s0, 4($sp)
         la          $a0, sudoku
         jal         rule1
-        # move      $s0, $v0
+        # sw        $v0, bool_for_rule_1
         # la        $a0, sudoku
         # jal       rule2
+        # lw        $s0, bool_for_rule_1
         # or        $t0, $s0, $v0
         bne       $v0, 0, solve_puzzle
         la        $a0, sudoku
-        sw        $a0, puzzle_res($0)
-        la        $t2, puzzle_res
-        sw        $t2, SUBMIT_SOLUTION($0)
-        # lw        $ra, 0($sp)
-        # lw        $s0, 4($sp)
-        # add       $sp, $sp, 8
-        j         infinite
+        sw        $a0, SUBMIT_SOLUTION($0)
+        j         req_puzzle
 req_puzzle: # function to request a puzzle
         la        $t2, sudoku
         sw        $t2, REQUEST_PUZZLE($0)
         sw        $0, puzzle_start($0)
+        # li $s0, 0
         # j         infinite
 
 puzzle_wait:
-        lw        $t0, puzzle_start
-        bne       $t0, $0, solve_puzzle
+        lw        $s0, puzzle_start
+        # lw        $s0, 0($sp)
+        # add       $sp, $sp, 8
+        bne       $s0, $0, solve_puzzle
         sw        $0, VELOCITY($0)
         j         puzzle_wait
 
@@ -175,7 +172,6 @@ board_address:
 	add	$v0, $a0, $v0
 	jr	$ra
 
-.globl rule1
 rule1:
 	sub	$sp, $sp, 32 		
 	sw	$ra, 0($sp)		# save $ra and free up 7 $s registers for
@@ -418,7 +414,7 @@ loop_k_end:
         j         loop_k_two
 
 loop_j_part_3:
-        la        $t3, 65535
+        li        $t3, 65535
         beq       $t3, $t0, loop_end_j
 
         not       $t1, $t0
@@ -524,9 +520,11 @@ bonk_interrupt:
         j         interrupt_dispatch          # see if other interrupts are waiting
 
 request_puzzle_interrupt:
-	sw	  $a1, REQUEST_PUZZLE_ACK     # acknowledge interrupt
+	sw	  $a1, REQUEST_PUZZLE_ACK($0)     # acknowledge interrupt
         li        $t1, 1
         sw        $t1, puzzle_start
+        # li         $s0, 1
+        # sw         $s0, 0($sp)
 	j	  interrupt_dispatch	      # see if other interrupts are waiting
 
 timer_interrupt:
