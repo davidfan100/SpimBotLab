@@ -170,6 +170,10 @@ loop_treasures:
         lw      $a2, BOT_Y($0)
         div     $s0, $a1, 10            # current bot j
         div     $s1, $a2, 10            # current bot i
+
+        # reset old shortest distance to compute again
+        li      $t0, 1000
+        sw      $t0, shortest_treasure_distance_squared($0)
 calculate_distance:
         lw      $s2, shortest_treasure_distance_squared($0)
         li      $s3, 0                  # find current distance to this treasure
@@ -182,6 +186,8 @@ calculate_distance:
 
         sw      $t4, closest_treasure_index($0)
         sw      $s0, shortest_treasure_distance_squared($0)
+
+        j       not_closer      # comment this line to print debugging info for closest treasure
 print_info:
         li      $v0, PRINT_INT
         move    $a0, $t4
