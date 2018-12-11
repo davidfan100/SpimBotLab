@@ -97,6 +97,10 @@ skip_turn:
         sw      $t1, VELOCITY($0)                 # drive
         j       find_closest_treasure
 finish_finding:
+        lw      $t0, shortest_treasure_distance_squared($0)
+        bne     $t0, $0, end_loop
+        j       pick_treasure
+end_loop:
         j       begin_infinite
 move_east: # function to move east, to be used when we do actual pathfinding
         li      $t4, 0
@@ -157,11 +161,15 @@ req_puzzle: # function to request a puzzle
 load_treasure_map: # get the treasure_map struct
         la      $t5, treasure_map
         sw      $t5, TREASURE_MAP($0)
-        j       begin_infinite
+        j       end_loop
 find_closest_treasure:
         li      $t4, 0                  # index
         la      $t2, treasure_map
         lw      $t3, 0($t2)             # length
+
+        # reset old shortest distance to compute again
+        li      $t0, 1000
+        sw      $t0, shortest_treasure_distance_squared($0)
 loop_treasures:
         # don't modify t4, t5, or t6
         mul     $t5, $t4, 8             # struct size offset
@@ -173,27 +181,43 @@ loop_treasures:
 
         lw      $a1, BOT_X($0)
         lw      $a2, BOT_Y($0)
-        div     $s0, $a1, 10            # current bot j
-        div     $s1, $a2, 10            # current bot i
-
-        # reset old shortest distance to compute again
-        li      $t0, 1000
-        sw      $t0, shortest_treasure_distance_squared($0)
+        div     $s1, $a1, 10            # current bot j
+        div     $s0, $a2, 10            # current bot i
 calculate_distance:
         lw      $s2, shortest_treasure_distance_squared($0)
-        li      $s3, 0                  # find current distance to this treasure
-        sub     $s0, $s0, $t6
-        sub     $s1, $s1, $t5
-        mul     $s0, $s0, $s0
-        mul     $s1, $s1, $s1
-        add     $s0, $s0, $s1
-        bgt     $s0, $s2, not_closer
+        sub     $s3, $s0, $t6
+        sub     $s4, $s1, $t5
+        mul     $s3, $s3, $s3
+        mul     $s4, $s4, $s4
+        add     $s3, $s3, $s4
+        bgt     $s3, $s2, not_closer
+        j       set_closest     # comment this line to print debugging info for closest treasure
+print_curr_bot_info:
+        li      $v0, PRINT_INT
+        move    $a0, $t4
+        syscall
+        li      $v0, PRINT_CHAR
+        li      $a0, '>'
+        syscall
+        li      $v0, PRINT_INT
+        move    $a0, $s0
+        syscall
+        li      $v0, PRINT_CHAR
+        li      $a0, ','
+        syscall
+        li      $v0, PRINT_INT
+        move    $a0, $s1
+        syscall
+        li      $v0, PRINT_CHAR
+        li      $a0, '\n'
+        syscall
 
+set_closest:
         sw      $t4, closest_treasure_index($0)
-        sw      $s0, shortest_treasure_distance_squared($0)
+        sw      $s3, shortest_treasure_distance_squared($0)
 
         j       not_closer      # comment this line to print debugging info for closest treasure
-print_info:
+print_treasure_info:
         li      $v0, PRINT_INT
         move    $a0, $t4
         syscall
@@ -226,7 +250,7 @@ not_closer:
 
 pick_treasure: # function to pick up treasure
         sw      $0, PICK_TREASURE($0)
-        j       infinite
+        j       load_treasure_map
 
 
 has_single_bit_set:
