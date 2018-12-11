@@ -101,6 +101,12 @@ infinite:
         lw      $s1, BOT_Y($0)
         div     $s1, $s1, 10                # s1 - y
 
+        beq     $s0, $s2, continue_checks
+        beq     $s1, $s3, continue_checks
+        lw      $t5, VELOCITY($0)
+        bne     $t5, $0, continue
+
+continue_checks:
         la      $t2, maze_map
         mul     $t1, $s1, 120
         mul     $t3, $s0, 4
@@ -787,9 +793,7 @@ interrupt_dispatch: # Interrupt:
 
 bonk_interrupt: 
         sw        $a1, BONK_ACK($0)           # acknowledge interrupt
-        li        $a1, 180                    # turn 180 degrees
-        sw        $a1, ANGLE($0)
-        sw        $0,  ANGLE_CONTROL($0)
+        sw        $0, VELOCITY($0)
         j         interrupt_dispatch          # see if other interrupts are waiting
 
 request_puzzle_interrupt:
