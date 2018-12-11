@@ -121,6 +121,8 @@ move_south: # function to move south, to be used when we do actual pathfinding
         sw      $t5, ANGLE_CONTROL($0)
         j       infinite
 solve_puzzle: # function to solve a puzzle (must have requested a puzzle first)
+        li      $t1, 0   
+        sw      $t1, VELOCITY($0)                 # drive
         la      $a0, sudoku
         jal     rule1
         # sw        $v0, bool_for_rule_1
