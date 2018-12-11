@@ -73,8 +73,8 @@ main:
         sw      $0, puzzle_requested
         j       load_treasure_map
 begin_infinite:
-        # lw        $t0, puzzle_requested
-        # beq       $t0, 0, req_puzzle
+        lw      $t0, puzzle_requested
+        beq     $t0, 0, req_puzzle
         lw      $t0, puzzle_start
         beq     $t0, 1, solve_puzzle
 infinite:     
@@ -152,7 +152,7 @@ req_puzzle: # function to request a puzzle
 load_treasure_map: # get the treasure_map struct
         la      $t2, treasure_map
         sw      $t2, TREASURE_MAP($0)
-        # j       infinite
+        j       begin_infinite
 find_closest_treasure:
         li      $t4, 0                  # index
         la      $t2, treasure_map
