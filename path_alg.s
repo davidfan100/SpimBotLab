@@ -218,7 +218,6 @@ swap:
 # a0 - x coordinate
 # a1 - y coordinate
 update_costs:
-        
         la      $s0, costmap            # s0 - get address of the cost map
         la      $s2, update_queue       # s2 - queue address
 
