@@ -60,6 +60,7 @@ prev_wall:      .word 1
 largest_treasure_x:     .word 1000
 largest_treasure_y:     .word 1000
 maze_map:       .byte 0:3600                        # maze map
+unexplored:     .byte 1:900                     # array with char (0 = been to, 1 = havent been to)
 
 .text
 main:
@@ -92,7 +93,18 @@ begin_infinite:
 infinite:     
         # need to write code to keep track of whenever we have found a treasure
 
+        la      $t0, unexplored
+        mul     $t6, $s1, 30
+        add     $t6, $t6, $s0                   # getting unexplored index for curr pos
+        add     $t6, $t6, $t0
+        lbu     $t7, 0($t6)
+
+        beq     $t7, $0, dont_load_map               # unexplored == 1 : havent explored yet
+
         jal     load_maze_map
+        sb      $0, 0($t6)                     # updates unexplored to 0 (explored)
+
+dont_load_map:
         lw      $s2, largest_treasure_x($0)                     # s2 - x-goal 
         lw      $s3, largest_treasure_y($0)                 # s3 - y-goal 
 
@@ -101,10 +113,13 @@ infinite:
         lw      $s1, BOT_Y($0)
         div     $s1, $s1, 10                # s1 - y
 
-        beq     $s0, $s2, continue_checks
+        beq     $s0, $s2, x_accurate
         beq     $s1, $s3, continue_checks
         lw      $t5, VELOCITY($0)
         bne     $t5, $0, continue
+
+x_accurate:
+        beq     $s1, $s3, correct_loc
 
 continue_checks:
         la      $t2, maze_map
@@ -176,9 +191,13 @@ break_south_wall:
         jal     move_south
         j       continue
 
+correct_loc:
+        sw      $0, VELOCITY($0)
+
 continue:
         j       find_largest_treasure
         #j       find_closest_treasure
+
 finish_finding:
         bne     $s0, $s2, end_loop
         bne     $s1, $s3, end_loop
