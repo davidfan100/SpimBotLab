@@ -73,6 +73,8 @@ main:
         sw      $0, puzzle_requested
         j       load_treasure_map
 begin_infinite:
+        lw      $t0, GET_KEYS($0)
+        bge     $t0, 6, infinite
         lw      $t0, puzzle_requested
         beq     $t0, 0, req_puzzle
         lw      $t0, puzzle_start
