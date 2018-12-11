@@ -150,8 +150,8 @@ req_puzzle: # function to request a puzzle
 #         j         puzzle_wait
 
 load_treasure_map: # get the treasure_map struct
-        la      $t2, treasure_map
-        sw      $t2, TREASURE_MAP($0)
+        la      $t5, treasure_map
+        sw      $t5, TREASURE_MAP($0)
         j       begin_infinite
 find_closest_treasure:
         li      $t4, 0                  # index
