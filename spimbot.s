@@ -94,6 +94,7 @@ skip_turn:
         li      $t1, 10    
         sw      $t1, VELOCITY($0)                 # drive
         j       find_closest_treasure
+finish_finding:
         j       begin_infinite
 move_east: # function to move east, to be used when we do actual pathfinding
         li      $t4, 0
@@ -215,7 +216,7 @@ print_info:
         syscall
 not_closer:
         add     $t4, $t4, 1
-        beq     $t4, $t3, infinite
+        beq     $t4, $t3, finish_finding
         j       loop_treasures
 
 
