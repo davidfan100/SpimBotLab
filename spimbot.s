@@ -201,7 +201,11 @@ continue:
 finish_finding:
         bne     $s0, $s2, end_loop
         bne     $s1, $s3, end_loop
-        j       pick_treasure
+
+        lw      $t0, GET_KEYS($0)
+        bge     $t0, 6, pick_treasure
+
+        j       begin_infinite
 end_loop:
         j       begin_infinite
 load_maze_map:
