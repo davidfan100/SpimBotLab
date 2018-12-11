@@ -120,7 +120,7 @@ infinite:
         j       load_maze_map                   # load updated map since now in unexplored area
 continue: # need to implement actually finding cost values
 
-        jal     
+             
         
 
 
@@ -224,29 +224,152 @@ update_costs:
 
         mul     $a1, $a1, 30
         add     $s1, $a1, $a0           # gets unrolled index of curr cell
-
-        sw      $s1, 0($s6)             # puts unrolled index of curr cell into queue
-        li      $t0, 0                  # t0 - start of queue
-        li      $t1, 1                  # t1 - back of queue
-
         mul     $s1, $s1, 8             # mult by 8 because each costcell has 8 bytes
-        add     $s1, $s0, $s1           # s1 - current cell info address
+        add     $s1, $s1, $s0           # s1 - current costcell info address
 
+        sw      $s1, 0($s2)             # puts unrolled index of curr costcell into queue
+  #      li      $t0, 0                  # t0 - start of queue
+        li      $t1, 1                  # t1 - size of queue
         lw      $s7, 0($s1)             #### s7 - h cost to update all surroundings ####
  #       lw      $s3, 4($s1)             # s3 - g cost of curr cell
 
 loop_until_allupdated:
-        beq     $t0, $t1, update_finished       # return if queue is empty
+        beq     $t1, $0, update_finished       # return if queue is empty
 
-        mul     $t2, $t0, 4                     # gets start address of queue
-        add     $t2, $t2, $s6
-        lw      $s1, 0($t6)                     # s1 - curr cell unrolled index
-        mul     $s1, $s1, 8
-        add     $s1, $s0, $s1                   # s1 curr costcell address
-        # TODO: create a check to see if curr cell has already been updated
-        # TODO: add surrounding cells that contain currgcost - 1
+  #      mul     $t2, $t0, 4                     # gets start address of queue (4 byte int )
+  #      add     $t2, $t2, $s2                   # gets start address of queue
+        lw      $s1, 0($s2)                     # s1 - curr costcell address (load first elem of queue)
+        add     $s2, $s2, 4                     # move address to next element
+ #       add     $t0, $t0, 1                     # increment start by one
+        sub     $t1, $t1, 1                     # decrement size by one
 
+        sw      $s7, 0($s1)             # update cost
+        lw      $s4, 4($s1)             # s5 - g cost of curr cell
+        sub     $s5, $s4, 1             # s4 - g cost - 1 (used to check surrounding cells)
+# check east cell
+east_cell_check:
+        add     $t3, $s1, 8             # get costcell address of cell to the east
+        lw      $t4, 0($t3)             # t4 - h cost of east cell
+        lw      $t5, 4($t3)             # t5 - g cost of east cell
+        beq     $t4, $s7, south_cell_check      # continue if already updated
+        bne     $s5, $t5, south_cell_check      # continue if current cell isnt on the path
+east_inner_east_check:
+        add     $t2, $t3, 8             # get costcell address to the east of the east address
+        lw      $t6, 0($t2)             # second h cost
+        lw      $t7, 4($t2)             # load g cost of other cell # create second check to make sure not updateing wrong thing
+        bne     $t7, $s4, east_inner_south_check        # if g cost isnt the same as curr g cost, 
+        bne     $t6, $s7, south_cell_check
+east_inner_south_check:
+        add     $t2, $t3, 240             # get costcell address to the east of the east address
+        lw      $t6, 0($t2)             # second h cost
+        lw      $t7, 4($t2)             # load g cost of other cell # create second check to make sure not updateing wrong thing
+        bne     $t7, $s4, east_inner_north_check        # if g cost isnt the same as curr g cost, 
+        bne     $t6, $s7, south_cell_check
+east_inner_north_check:
+        sub     $t2, $t3, 240             # get costcell address to the east of the east address
+        lw      $t6, 0($t2)             # second h cost
+        lw      $t7, 4($t2)             # load g cost of other cell # create second check to make sure not updateing wrong thing
+        bne     $t7, $s4, east_add        # if g cost isnt the same as curr g cost, 
+        bne     $t6, $s7, south_cell_check
+east_add:
+        mul     $t0, $t1, 4             # mult size of queue by 4
+        add     $t0, $t0, $s2           # add that size to starting address of queue
+        sw      $t3, 0($t0)             # store east cell for pending update
+        add     $t1, $t1, 1             # increment size by one
+# check south cell
+south_cell_check:
+        add     $t3, $s1, 240             # get costcell address of cell to the south
+        lw      $t4, 0($t3)             # t4 - h cost of west cell
+        lw      $t5, 4($t3)             # t5 - g cost of west cell
+        beq     $t4, $s7, west_cell_check      # continue if already updated
+        bne     $s5, $t5, west_cell_check      # continue if current cell isnt on the path
+south_inner_east_check:
+        add     $t2, $t3, 8             # get costcell address to the east of the east address
+        lw      $t6, 0($t2)             # second h cost
+        lw      $t7, 4($t2)             # load g cost of other cell # create second check to make sure not updateing wrong thing
+        bne     $t7, $s4, south_inner_south_check        # if g cost isnt the same as curr g cost, 
+        bne     $t6, $s7, west_cell_check
+south_inner_south_check:
+        add     $t2, $t3, 240             # get costcell address to the east of the east address
+        lw      $t6, 0($t2)             # second h cost
+        lw      $t7, 4($t2)             # load g cost of other cell # create second check to make sure not updateing wrong thing
+        bne     $t7, $s4, south_inner_north_check        # if g cost isnt the same as curr g cost, 
+        bne     $t6, $s7, west_cell_check
+south_inner_west_check:
+        sub     $t2, $t3, 8             # get costcell address to the east of the east address
+        lw      $t6, 0($t2)             # second h cost
+        lw      $t7, 4($t2)             # load g cost of other cell # create second check to make sure not updateing wrong thing
+        bne     $t7, $s4, south_add        # if g cost isnt the same as curr g cost, 
+        bne     $t6, $s7, west_cell_check
+south_add:
 
+        mul     $t0, $t1, 4             # mult size of queue by 4
+        add     $t0, $t0, $s2           # add that size to starting address of queue
+        sw      $t3, 0($t0)             # store west cell for pending update
+        add     $t1, $t1, 1             # increment size by one
+
+# check west cell
+west_cell_check:
+        sub     $t3, $s1, 8             # get costcell address of cell to the west
+        lw      $t4, 0($t3)             # t4 - h cost of west cell
+        lw      $t5, 4($t3)             # t5 - g cost of west cell
+        beq     $t4, $s7, north_cell_check      # continue if already updated
+        bne     $s5, $t5, north_cell_check      # continue if current cell isnt on the path
+west_inner_west_check:
+        sub     $t2, $t3, 8             # get costcell address to the east of the east address
+        lw      $t6, 0($t2)             # second h cost
+        lw      $t7, 4($t2)             # load g cost of other cell # create second check to make sure not updateing wrong thing
+        bne     $t7, $s4, west_inner_south_check        # if g cost isnt the same as curr g cost, 
+        bne     $t6, $s7, north_cell_check
+west_inner_south_check:
+        add     $t2, $t3, 240             # get costcell address to the east of the east address
+        lw      $t6, 0($t2)             # second h cost
+        lw      $t7, 4($t2)             # load g cost of other cell # create second check to make sure not updateing wrong thing
+        bne     $t7, $s4, west_inner_north_check        # if g cost isnt the same as curr g cost, 
+        bne     $t6, $s7, north_cell_check
+west_inner_north_check:
+        sub     $t2, $t3, 240             # get costcell address to the east of the east address
+        lw      $t6, 0($t2)             # second h cost
+        lw      $t7, 4($t2)             # load g cost of other cell # create second check to make sure not updateing wrong thing
+        bne     $t7, $s4, west_add        # if g cost isnt the same as curr g cost, 
+        bne     $t6, $s7, north_cell_check
+west_add:
+        mul     $t0, $t1, 4             # mult size of queue by 4
+        add     $t0, $t0, $s2           # add that size to starting address of queue
+        sw      $t3, 0($t0)             # store west cell for pending update
+        add     $t1, $t1, 1             # increment size by one
+# check north cell
+north_cell_check:
+        sub     $t3, $s1, 240             # get costcell address of cell to the north
+        lw      $t4, 0($t3)             # t4 - h cost of north cell
+        lw      $t5, 4($t3)             # t5 - g cost of north cell
+        beq     $t4, $s7, loop_until_allupdated      # continue if already updated
+        bne     $s5, $t5, loop_until_allupdated      # continue if current cell isnt on the path
+north_inner_east_check:
+        add     $t2, $t3, 8             # get costcell address to the east of the east address
+        lw      $t6, 0($t2)             # second h cost
+        lw      $t7, 4($t2)             # load g cost of other cell # create second check to make sure not updateing wrong thing
+        bne     $t7, $s4, north_inner_south_check        # if g cost isnt the same as curr g cost, 
+        bne     $t6, $s7, loop_until_allupdated
+north_inner_west_check:
+        sub     $t2, $t3, 8             # get costcell address to the east of the east address
+        lw      $t6, 0($t2)             # second h cost
+        lw      $t7, 4($t2)             # load g cost of other cell # create second check to make sure not updateing wrong thing
+        bne     $t7, $s4, north_inner_north_check        # if g cost isnt the same as curr g cost, 
+        bne     $t6, $s7, loop_until_allupdated
+north_inner_north_check:
+        sub     $t2, $t3, 240             # get costcell address to the east of the east address
+        lw      $t6, 0($t2)             # second h cost
+        lw      $t7, 4($t2)             # load g cost of other cell # create second check to make sure not updateing wrong thing
+        bne     $t7, $s4, north_add        # if g cost isnt the same as curr g cost, 
+        bne     $t6, $s7, loop_until_allupdated
+north_add:
+        mul     $t0, $t1, 4             # mult size of queue by 4
+        add     $t0, $t0, $s2           # add that size to starting address of queue
+        sw      $t3, 0($t0)             # store north cell for pending update
+        add     $t1, $t1, 1             # increment size by one
+
+        j       loop_until_allupdated
 update_finished:
         jr      $ra
 
