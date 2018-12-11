@@ -65,6 +65,9 @@ main:
         or      $t4, $t4, 1                       # global interrupt enable
         mtc0    $t4, $12                          # set interrupt mask (Status register)
         
+        sub     $sp, $sp, 8
+        sw      $t0, 0($sp)
+        sw      $t2, 4($sp)
         # REQUEST TIMER INTERRUPT 
         # lw      $v0, TIMER($0)                    # read current time
         # jr      $ra                               # ret
@@ -82,6 +85,7 @@ begin_infinite:
 infinite:     
         # need to write code to keep track of whenever we have found a treasure
         lw      $t2, RIGHT_WALL_SENSOR            # 1 if wall to right
+        sw      $t2, 4($sp)
         lw      $t3, prev_wall($0)
         bne     $t2, $0, skip_turn   
         beq     $t2, $t3, skip_turn               # rotate 90 if 0
@@ -92,6 +96,7 @@ infinite:
 
 skip_turn:  
         # move      $a1, $a0                          # save prev right wall
+        lw      $t2, 4($sp)
         sw      $t2, prev_wall($0)
         li      $t1, 10    
         sw      $t1, VELOCITY($0)                 # drive
@@ -127,8 +132,9 @@ move_south: # function to move south, to be used when we do actual pathfinding
         sw      $t5, ANGLE_CONTROL($0)
         j       infinite
 solve_puzzle: # function to solve a puzzle (must have requested a puzzle first)
-        li      $t1, 0   
-        sw      $t1, VELOCITY($0)                 # drive
+        # li      $t1, 0   
+        # sw      $t1, VELOCITY($0)                 # drive
+
         la      $a0, sudoku
         jal     rule1
         # sw        $v0, bool_for_rule_1
