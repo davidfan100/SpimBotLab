@@ -55,6 +55,8 @@ closest_treasure_index: .word 1
 shortest_treasure_distance_squared: .word 1000
 puzzle_requested: .word 1                           # boolean flag to say that a puzzle is being requested
 prev_wall:      .word 1
+largest_treasure_x:     .word 1000
+largest_treasure_y:     .word 1000
 
 .text
 main:
@@ -100,7 +102,8 @@ skip_turn:
         sw      $t2, prev_wall($0)
         li      $t1, 10    
         sw      $t1, VELOCITY($0)                 # drive
-        j       find_closest_treasure
+        j       find_largest_treasure
+        # j       find_closest_treasure
 finish_finding:
         lw      $t0, shortest_treasure_distance_squared($0)
         bne     $t0, $0, end_loop
@@ -168,6 +171,33 @@ load_treasure_map: # get the treasure_map struct
         la      $t5, treasure_map
         sw      $t5, TREASURE_MAP($0)
         j       end_loop
+find_largest_treasure:
+        li      $t4, 0                  # index
+        la      $t2, treasure_map
+        lw      $t3, 0($t2)             # length
+
+        # reset old shortest distance to compute again
+        li      $t0, 1000
+        sw      $t0, largest_treasure_x($0)
+        sw      $t0, largest_treasure_y($0)
+largest_loop_treasures:
+        # don't modify t4
+        mul     $t5, $t4, 8             # struct size offset
+        add     $t5, $t5, 4             # length offset
+        add     $t1, $t2, $t5
+        lw      $t7, 4($t1)             # int points
+        li      $t6, 5
+        bne     $t6, $t7, keep_looping_largest
+set_largest_treasure_coords:
+        lh      $t5, 0($t1)             # short i
+        lh      $t6, 2($t1)             # short j
+        sw      $t5, largest_treasure_x($0)
+        sw      $t6, largest_treasure_y($0)
+        j       finish_finding
+keep_looping_largest:
+        add     $t4, $t4, 1
+        beq     $t4, $t3, finish_finding
+        j       largest_loop_treasures
 find_closest_treasure:
         li      $t4, 0                  # index
         la      $t2, treasure_map
